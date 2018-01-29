@@ -22,6 +22,8 @@ type Users struct {
 	mut      sync.Mutex
 }
 
+//
+
 func (u *Users) AddUser(user tb.User) {
 	u.mut.Lock()
 	defer u.mut.Unlock()
