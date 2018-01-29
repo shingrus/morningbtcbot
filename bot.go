@@ -27,7 +27,7 @@ type Users struct {
 func (u *Users) AddUser(user tb.User) {
 	u.mut.Lock()
 	defer u.mut.Unlock()
-	fmt.Printf("Add user: %s", user.Username)
+	fmt.Printf("Add user: %s\n", user.Username)
 	if _, ok := u.usersMap[user.ID]; !ok {
 		u.usersMap[user.ID] = user
 		db, err := bolt.Open(databaseName, 0600, nil)
