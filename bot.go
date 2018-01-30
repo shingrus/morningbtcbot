@@ -209,7 +209,7 @@ type BPI struct {
 /*
 This function check price on coindesk: https://api.coindesk.com/v1/bpi/currentprice.json
  and seep,
-The prise is sendt to the channel
+The prise is sent to the channel
 And to all telegram subscribers
  */
 func getPriceEvery60Seconds(priceChannel chan float32, b *tb.Bot, users *Users) {
