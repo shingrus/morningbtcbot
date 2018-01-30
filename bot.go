@@ -20,7 +20,7 @@ var usersBucket = "users"
 var sendDateBucket = "sendDateBucket"
 var sendDateKey = "sendDateKey"
 
-var hourToSend = 12
+var hourToSend = 9
 
 type Users struct {
 	usersMap map[int]tb.User
