@@ -13,9 +13,14 @@ import (
 	"os"
 )
 
+var tokenEnvVar = "TELETOKEN"
+
 var databaseName = "users.db"
 var usersBucket = "users"
-var tokenEnvVar = "TELETOKEN"
+var sendDateBucket = "sendDateBucket"
+var sendDateKey = "sendDateKey"
+
+var hourToSend = 12
 
 type Users struct {
 	usersMap map[int]tb.User
@@ -76,6 +81,11 @@ func InitUsers() (users *Users) {
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
 		}
+		_, err = tx.CreateBucketIfNotExists([]byte(sendDateBucket))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+
 		return nil
 	})
 	db.View(func(tx *bolt.Tx) error {
@@ -106,20 +116,84 @@ func (u *Users) getUsers() (ret []tb.User) {
 	return
 }
 
+//Try with closure
+var _lastSendDate time.Time
+
+func getLastSendDate() (time.Time) {
+	if _lastSendDate.IsZero() {
+		db, err := bolt.Open(databaseName, 0600, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+		db.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte(sendDateBucket))
+			val := b.Get([]byte(sendDateKey))
+			if val != nil {
+				fmt.Printf("saved time: %s\n", string(val))
+				_lastSendDate, err = time.Parse(time.UnixDate, string(val))
+				if err != nil {
+					log.Println(err)
+					_lastSendDate = time.Now()
+				}
+			}
+			return nil
+		})
+	}
+	return _lastSendDate
+}
+func updateLastSendDate(sendDate time.Time) {
+	db, err := bolt.Open(databaseName, 0600, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(sendDateBucket))
+		err := b.Put([]byte(sendDateKey), []byte(sendDate.Format(time.UnixDate)))
+		log.Printf("Saved: %s", sendDate.Format(time.UnixDate))
+		return err
+	})
+	_lastSendDate = sendDate
+}
+
+func (u *Users) SendToAllUsers(b *tb.Bot, message string) {
+
+	//hours, minutes, secs:= time.Now().Clock()
+	now := time.Now()
+	hours, _, _ := now.Clock()
+
+	if hours == hourToSend {
+
+		//check if we already sent today
+		lastSendDate := getLastSendDate()
+		fmt.Printf("Time diff in hours: %f", time.Since(lastSendDate).Hours())
+		if time.Since(lastSendDate).Hours() > 23 {
+
+			for _, user := range u.getUsers() {
+				_, err := b.Send(&user, message)
+				if err != nil {
+					switch err.Error() {
+					case "api error: Bad Request: chat not found":
+						u.RemoveUser(user.ID)
+					default:
+						fmt.Println(err)
+					}
+				}
+			}
+			updateLastSendDate(now)
+		}
+	} else {
+		log.Printf("Time hours(%d), not the time to send(%d)",hours, hourToSend)
+	}
+}
+
 type JSVal struct {
 	Time struct {
 		Updated string `json:"updated"`
 	}
 	BPI Currency `json:"BPI"`
 }
-
-/*
- "code": "USD",
-      "symbol": "&#36;",
-      "rate": "11,202.9125",
-      "description": "United States Dollar",
-      "rate_float": 11202.9125
- */
 
 type Currency struct {
 	USD BPI `json:"USD"`
@@ -135,9 +209,10 @@ type BPI struct {
 /*
 This function check price on coindesk: https://api.coindesk.com/v1/bpi/currentprice.json
  and seep,
-prise sends to channel
+The prise is sendt to the channel
+And to all telegram subscribers
  */
-func getPriceEveryNSeconds(priceChannel chan float32, b *tb.Bot, users *Users) {
+func getPriceEvery60Seconds(priceChannel chan float32, b *tb.Bot, users *Users) {
 
 	apiUrl := "https://api.coindesk.com/v1/bpi/currentprice.json"
 	var myClient = &http.Client{Timeout: 30 * time.Second}
@@ -147,7 +222,7 @@ func getPriceEveryNSeconds(priceChannel chan float32, b *tb.Bot, users *Users) {
 		res, err := myClient.Get(apiUrl)
 		if err == nil {
 			dec := json.NewDecoder(res.Body)
-			//robots, err := ioutil.ReadAll(res.Body)
+			var price float32
 			for dec.More() {
 				var jval JSVal
 				err := dec.Decode(&jval)
@@ -156,30 +231,23 @@ func getPriceEveryNSeconds(priceChannel chan float32, b *tb.Bot, users *Users) {
 					break
 				}
 				fmt.Printf("Bitcoin to usd price: %f at %s\n", jval.BPI.USD.Rf, jval.Time.Updated)
+				price = jval.BPI.USD.Rf
 				select {
 				case priceChannel <- jval.BPI.USD.Rf:
 					fmt.Printf("sent message to channel")
 				default:
 					fmt.Println("no price channel readers")
 				}
-
-				for _, u := range users.getUsers() {
-					_, err := b.Send(&u, fmt.Sprintf("Bitcoin price: %.2f $", jval.BPI.USD.Rf))
-					if err != nil {
-						switch err.Error() {
-						case "api error: Bad Request: chat not found":
-							users.RemoveUser(u.ID)
-						default:
-							fmt.Println(err)
-						}
-					}
-				}
-
 			}
+			if price != 0 {
+				users.SendToAllUsers(b, fmt.Sprintf("Current Bitcoin price is: %.2f $\nSee more at https://www.coindesk.com/price/", price))
+			}
+
 			res.Body.Close()
 		} else {
 			log.Println(err)
 		}
+		//wake up every 30 minutes
 		time.Sleep(time.Second * 60)
 	}
 }
@@ -207,7 +275,7 @@ func main() {
 		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nThis bot is under development. Please come a bit later", m.Sender.Username))
 		users.AddUser(*m.Sender)
 	})
-	go getPriceEveryNSeconds(priceChannel, b, users)
+	go getPriceEvery60Seconds(priceChannel, b, users)
 
 	b.Start()
 }
