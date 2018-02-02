@@ -245,7 +245,7 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 				//}
 				users.SendToAllUsers(b, fmt.Sprintf("Current Bitcoin price is: %.2f $\nSee more at https://www.coindesk.com/price/", price))
 				stat.AddStat(price)
-				fmt.Println("Avg price:", stat.getAvg())
+				fmt.Printf("Median price: %.2f\n", stat.getMedian())
 			}
 
 			res.Body.Close()
