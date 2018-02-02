@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-const storegeSize = 5
+const storegeSize = 60*24
 
 type Stat struct {
 	mut         sync.Mutex
