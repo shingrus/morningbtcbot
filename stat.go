@@ -19,7 +19,7 @@ func InitStat() (stat *Stat) {
 
 }
 
-func (s *Stat) AddStat(f float32) {
+func (s *Stat) AddStat(f float64) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.liteStorage[s.pointer] = float64(f)

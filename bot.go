@@ -159,7 +159,7 @@ func updateLastSendDate(sendDate time.Time) {
 	_lastSendDate = sendDate
 }
 
-func (u *Users) SendToAllUsers(b *tb.Bot, message string) {
+func (u *Users) SendToAllUsers(b *tb.Bot, price float64, median float64) {
 
 	//hours, minutes, secs:= time.Now().Clock()
 	now := time.Now()
@@ -170,8 +170,10 @@ func (u *Users) SendToAllUsers(b *tb.Bot, message string) {
 		//check if we already sent today
 		lastSendDate := getLastSendDate()
 		fmt.Printf("Time diff in hours: %f", time.Since(lastSendDate).Hours())
-		if time.Since(lastSendDate).Hours() > 23 {
-
+		if  time.Since(lastSendDate).Hours() > 23 {
+			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
+				"Diff: %.1f%%"+
+				"\nSee more at https://www.coindesk.com/price/", price, (1-price/median)*100)
 			for _, user := range u.getUsers() {
 				_, err := b.Send(&user, message)
 				if err != nil {
@@ -186,10 +188,9 @@ func (u *Users) SendToAllUsers(b *tb.Bot, message string) {
 			updateLastSendDate(now)
 		}
 	} else {
-		log.Printf("Time hours(%d), not the time to send(%d)",hours, hourToSend)
+		log.Printf("Time hours(%d), not the time to send(%d)", hours, hourToSend)
 	}
 }
-
 
 type JSVal struct {
 	Time struct {
@@ -206,7 +207,7 @@ type BPI struct {
 	Symbol      string  `json:"symbol"`
 	Rate        string  `json:"rate"`
 	Description string  `json:"description"`
-	Rf          float32 `json:"rate_float"`
+	Rf          float64 `json:"rate_float"`
 }
 
 /*
@@ -225,7 +226,7 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 		res, err := myClient.Get(apiUrl)
 		if err == nil {
 			dec := json.NewDecoder(res.Body)
-			var price float32
+			var price float64
 			for dec.More() {
 				var jval JSVal
 				err := dec.Decode(&jval)
@@ -243,9 +244,11 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 				//default:
 				//	fmt.Println("no price channel readers")
 				//}
-				users.SendToAllUsers(b, fmt.Sprintf("Current Bitcoin price is: %.2f $\nSee more at https://www.coindesk.com/price/", price))
 				stat.AddStat(price)
-				fmt.Printf("Median price: %.2f\n", stat.getMedian())
+				median := stat.getMedian()
+				users.SendToAllUsers(b, price, median)
+
+				fmt.Printf("Median price: %.2f, diff: %.2f%%\n", median, (1-float64(price)/median)*100)
 			}
 
 			res.Body.Close()
@@ -280,7 +283,7 @@ func main() {
 		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nThis bot is under development. Please come a bit later", m.Sender.Username))
 		users.AddUser(*m.Sender)
 	})
-	stat:=InitStat()
+	stat := InitStat()
 	go getPriceEvery60Seconds(stat, b, users)
 	b.Start()
 }
