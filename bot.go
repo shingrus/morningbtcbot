@@ -20,6 +20,8 @@ var usersBucket = "users"
 var sendDateBucket = "sendDateBucket"
 var sendDateKey = "sendDateKey"
 
+//var picesBucket = "Price_BTC_USD"
+
 var hourToSend = 9
 
 type Users struct {
@@ -188,6 +190,7 @@ func (u *Users) SendToAllUsers(b *tb.Bot, message string) {
 	}
 }
 
+
 type JSVal struct {
 	Time struct {
 		Updated string `json:"updated"`
@@ -212,7 +215,7 @@ This function check price on coindesk: https://api.coindesk.com/v1/bpi/currentpr
 The prise is sent to the channel
 And to all telegram subscribers
  */
-func getPriceEvery60Seconds(priceChannel chan float32, b *tb.Bot, users *Users) {
+func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 
 	apiUrl := "https://api.coindesk.com/v1/bpi/currentprice.json"
 	var myClient = &http.Client{Timeout: 30 * time.Second}
@@ -232,15 +235,17 @@ func getPriceEvery60Seconds(priceChannel chan float32, b *tb.Bot, users *Users) 
 				}
 				fmt.Printf("Bitcoin to usd price: %f at %s\n", jval.BPI.USD.Rf, jval.Time.Updated)
 				price = jval.BPI.USD.Rf
-				select {
-				case priceChannel <- jval.BPI.USD.Rf:
-					fmt.Printf("sent message to channel")
-				default:
-					fmt.Println("no price channel readers")
-				}
 			}
 			if price != 0 {
+				//select {
+				//case priceChannel <- price:
+				//	fmt.Println("sent message to channel")
+				//default:
+				//	fmt.Println("no price channel readers")
+				//}
 				users.SendToAllUsers(b, fmt.Sprintf("Current Bitcoin price is: %.2f $\nSee more at https://www.coindesk.com/price/", price))
+				stat.AddStat(price)
+				fmt.Println("Avg price:", stat.getAvg())
 			}
 
 			res.Body.Close()
@@ -254,7 +259,7 @@ func getPriceEvery60Seconds(priceChannel chan float32, b *tb.Bot, users *Users) 
 
 func main() {
 
-	priceChannel := make(chan float32)
+	//priceChannel := make(chan float32)
 
 	users := InitUsers()
 	b, err := tb.NewBot(tb.Settings{
@@ -275,7 +280,7 @@ func main() {
 		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nThis bot is under development. Please come a bit later", m.Sender.Username))
 		users.AddUser(*m.Sender)
 	})
-	go getPriceEvery60Seconds(priceChannel, b, users)
-
+	stat:=InitStat()
+	go getPriceEvery60Seconds(stat, b, users)
 	b.Start()
 }
