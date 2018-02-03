@@ -166,14 +166,13 @@ func (u *Users) SendToAllUsers(b *tb.Bot, price float64, median float64) {
 	hours, _, _ := now.Clock()
 
 	if hours == hourToSend {
-
 		//check if we already sent today
 		lastSendDate := getLastSendDate()
 		fmt.Printf("Time diff in hours: %f", time.Since(lastSendDate).Hours())
 		if  time.Since(lastSendDate).Hours() > 23 {
 			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
 				"Diff: %.1f%%"+
-				"\nSee more at https://www.coindesk.com/price/", price, (1-price/median)*100)
+				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
 			for _, user := range u.getUsers() {
 				_, err := b.Send(&user, message)
 				if err != nil {
