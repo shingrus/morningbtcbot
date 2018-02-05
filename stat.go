@@ -9,8 +9,8 @@ import (
 	"fmt"
 )
 
-const statDBName string = "stat.db"
-const statBucket string = "statBucket"
+const statDBName  = "stat.db"
+const statBucket  = "statBucket"
 
 const storegeSize = 60 * 24
 
@@ -43,7 +43,7 @@ func (s *Stat) AddStat(f float64) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.liteStorage[s.pointer] = float64(f)
-	if (s.length < storegeSize) {
+	if s.length < storegeSize {
 		s.length++
 	}
 	s.pointer++
