@@ -5,12 +5,10 @@ import (
 	"sync"
 	"github.com/boltdb/bolt"
 	"time"
-	"log"
 	"fmt"
 )
 
-const statDBName  = "stat.db"
-const statBucket  = "statBucket"
+const statDBName = "stat.db"
 
 const storegeSize = 60 * 24
 
@@ -27,13 +25,6 @@ func InitStat() (stat *Stat) {
 	db, err := bolt.Open(statDBName, 0600, nil)
 	if err == nil {
 		stat.db = db
-		db.Update(func(tx *bolt.Tx) error {
-			_, err := tx.CreateBucketIfNotExists([]byte(statBucket))
-			if err != nil {
-				return fmt.Errorf("create bucket: %s", err)
-			}
-			return nil
-		})
 	}
 	return
 
@@ -50,14 +41,15 @@ func (s *Stat) AddStat(f float64) {
 	s.pointer %= storegeSize
 	if s.db != nil {
 		s.db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(statBucket))
-			if b != nil {
-				now := time.Now()
-				err := b.Put([]byte(now.Format(time.UnixDate)), []byte(fmt.Sprintf("%.2f", f)))
-				log.Printf("Saved: %s -> %.2f", now.Format(time.UnixDate), f)
-				return err
+			now := time.Now()
+			statBucket := fmt.Sprintf("%d/%d/%d", now.UTC().Year(), now.UTC().Month(), now.UTC().Day())
+			b, err := tx.CreateBucketIfNotExists([]byte(statBucket))
+			if err != nil {
+				return fmt.Errorf("Can't create a bucket: %s", err)
 			}
-			return nil
+			err = b.Put([]byte(now.UTC().Format(time.UnixDate)), []byte(fmt.Sprintf("%.2f", f)))
+			//log.Printf("Saved: %s -> %.2f", now.UTC().Format(time.UnixDate), f)
+			return err
 		})
 
 	}
