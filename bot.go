@@ -237,12 +237,6 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 				price = jval.BPI.USD.Rf
 			}
 			if price != 0 {
-				//select {
-				//case priceChannel <- price:
-				//	fmt.Println("sent message to channel")
-				//default:
-				//	fmt.Println("no price channel readers")
-				//}
 				stat.AddStat(price)
 				median := stat.getMedian()
 				users.SendToAllUsers(b, price, median)
