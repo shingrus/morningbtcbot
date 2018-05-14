@@ -262,6 +262,7 @@ func main() {
 		Token:  os.Getenv(tokenEnvVar),
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
+	stat := InitStat()
 
 	if err != nil {
 		log.Fatal(err)
@@ -271,12 +272,15 @@ func main() {
 	b.Handle("/hello", func(m *tb.Message) {
 		b.Send(m.Sender, "Morning")
 	})
-
+	b.Handle("/price", func(m *tb.Message) {
+		median := stat.getMedian()
+		b.Send(m.Sender, fmt.Sprintf("Bitcoin median price: %.2f", median))
+	})
 	b.Handle("/start", func(m *tb.Message) {
-		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nThis bot is under development. Please come a bit later", m.Sender.Username))
+		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nI'm going to send you price update daily", m.Sender.Username))
 		users.AddUser(*m.Sender)
 	})
-	stat := InitStat()
+
 	go getPriceEvery60Seconds(stat, b, users)
 	b.Start()
 }
