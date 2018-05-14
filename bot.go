@@ -254,16 +254,16 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 
 	}
 }
-func sendMedianPrice(b *tb.Bot, userChannel chan *tb.Chat, stat *Stat) {
-	for user, ok := <-userChannel; ok; user, ok = <-userChannel {
+func sendMedianPrice(b *tb.Bot, chatChannel chan *tb.Chat, stat *Stat) {
+	for chat, ok := <-chatChannel; ok; chat, ok = <-chatChannel {
 		price := updatePrice()
 		if price != 0 {
-			log.Printf("Send update to %s", user.Username)
+			log.Printf("Send update to %d", chat.ID)
 			median := stat.getMedian()
 			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
 				"Diff: %.2f%%"+
 				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
-			_, err := b.Send(user, message)
+			_, err := b.Send(chat, message)
 			if err != nil {
 				switch err.Error() {
 				case "api error: Bad Request: no such user":
