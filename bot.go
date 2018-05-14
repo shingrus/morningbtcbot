@@ -272,7 +272,8 @@ func main() {
 	b.Handle("/hello", func(m *tb.Message) {
 		b.Send(m.Sender, "Morning")
 	})
-	b.Handle("/price", func(m *tb.Message) {
+	b.Handle("/update", func(m *tb.Message) {
+		//TODO move it to separate gorutune
 		median := stat.getMedian()
 		b.Send(m.Sender, fmt.Sprintf("Bitcoin median price for last 24h: %.2f $", median))
 	})
