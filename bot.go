@@ -172,7 +172,7 @@ func (u *Users) SendToAllUsers(b *tb.Bot, price float64, median float64) {
 		fmt.Printf("Time diff in hours: %f", time.Since(lastSendDate).Hours())
 		if time.Since(lastSendDate).Hours() > 23 {
 			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
-				"Diff: %.1f%%"+
+				"Diff: %.2f%%"+
 				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
 			for _, user := range u.getUsers() {
 				_, err := b.Send(&user, message)
@@ -261,7 +261,7 @@ func sendMedianPrice(b *tb.Bot, userChannel chan *tb.User, stat *Stat) {
 			log.Printf("Send update to %s", user.Username)
 			median := stat.getMedian()
 			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
-				"Diff: %.1f%%"+
+				"Diff: %.2%%"+
 				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
 			_, err := b.Send(user, message)
 			if err != nil {
