@@ -274,7 +274,7 @@ func main() {
 	})
 	b.Handle("/price", func(m *tb.Message) {
 		median := stat.getMedian()
-		b.Send(m.Sender, fmt.Sprintf("Bitcoin median price for last 24h: %.2f", median))
+		b.Send(m.Sender, fmt.Sprintf("Bitcoin median price for last 24h: %.2f $", median))
 	})
 	b.Handle("/start", func(m *tb.Message) {
 		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nI'm going to send you price update daily", m.Sender.Username))
