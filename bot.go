@@ -261,7 +261,7 @@ func sendMedianPrice(b *tb.Bot, userChannel chan *tb.User, stat *Stat) {
 			log.Printf("Send update to %s", user.Username)
 			median := stat.getMedian()
 			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
-				"Diff: %.2%%"+
+				"Diff: %.2f%%"+
 				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
 			_, err := b.Send(user, message)
 			if err != nil {
