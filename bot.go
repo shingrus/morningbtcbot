@@ -254,7 +254,7 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 
 	}
 }
-func sendMedianPrice(b *tb.Bot, userChannel chan *tb.User, stat *Stat) {
+func sendMedianPrice(b *tb.Bot, userChannel chan *tb.Chat, stat *Stat) {
 	for user, ok := <-userChannel; ok; user, ok = <-userChannel {
 		price := updatePrice()
 		if price != 0 {
@@ -275,8 +275,8 @@ func sendMedianPrice(b *tb.Bot, userChannel chan *tb.User, stat *Stat) {
 	}
 }
 
-func sendUserToChan(ch chan *tb.User, user *tb.User) {
-	ch <- user
+func sendUserToChan(ch chan *tb.Chat, chat *tb.Chat) {
+	ch <- chat
 }
 
 func main() {
@@ -289,7 +289,7 @@ func main() {
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
 	stat := InitStat()
-	userChannel := make(chan *tb.User)
+	userChannel := make(chan *tb.Chat)
 	go sendMedianPrice(b, userChannel, stat)
 
 	if err != nil {
@@ -301,10 +301,12 @@ func main() {
 		b.Send(m.Sender, "Morning")
 	})
 	b.Handle("/update", func(m *tb.Message) {
-		go sendUserToChan(userChannel, m.Sender)
+
+		go sendUserToChan(userChannel, m.Chat)
 	})
 	b.Handle("/start", func(m *tb.Message) {
-		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nI'm going to send you price update daily", m.Sender.Username))
+		b.Send(m.Chat, fmt.Sprintf("Hi, @%s!\nI'm going to send you price update daily", m.Sender.Username))
+		//Todo change to chat
 		users.AddUser(*m.Sender)
 	})
 
