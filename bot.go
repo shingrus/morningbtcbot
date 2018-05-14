@@ -15,10 +15,11 @@ import (
 
 var tokenEnvVar = "TELETOKEN"
 
-var databaseName = "users.db"
-var usersBucket = "users"
-var sendDateBucket = "sendDateBucket"
-var sendDateKey = "sendDateKey"
+const databaseName = "users.db"
+const usersBucket = "users"
+const sendDateBucket = "sendDateBucket"
+const sendDateKey = "sendDateKey"
+const apiUrl = "https://api.coindesk.com/v1/bpi/currentprice.json"
 
 //var picesBucket = "Price_BTC_USD"
 
@@ -169,7 +170,7 @@ func (u *Users) SendToAllUsers(b *tb.Bot, price float64, median float64) {
 		//check if we already sent today
 		lastSendDate := getLastSendDate()
 		fmt.Printf("Time diff in hours: %f", time.Since(lastSendDate).Hours())
-		if  time.Since(lastSendDate).Hours() > 23 {
+		if time.Since(lastSendDate).Hours() > 23 {
 			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
 				"Diff: %.1f%%"+
 				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
@@ -209,6 +210,29 @@ type BPI struct {
 	Rf          float64 `json:"rate_float"`
 }
 
+func updatePrice() (price float64) {
+	var myClient = &http.Client{Timeout: 30 * time.Second}
+	res, err := myClient.Get(apiUrl)
+	if err == nil {
+		dec := json.NewDecoder(res.Body)
+		for dec.More() {
+			var jval JSVal
+			err := dec.Decode(&jval)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+			fmt.Printf("Bitcoin to usd price: %f at %s\n", jval.BPI.USD.Rf, jval.Time.Updated)
+			price = jval.BPI.USD.Rf
+		}
+		res.Body.Close()
+	} else {
+		log.Println(err)
+	}
+
+	return
+}
+
 /*
 This function check price on coindesk: https://api.coindesk.com/v1/bpi/currentprice.json
  and seep,
@@ -217,40 +241,42 @@ And to all telegram subscribers
  */
 func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, users *Users) {
 
-	apiUrl := "https://api.coindesk.com/v1/bpi/currentprice.json"
-	var myClient = &http.Client{Timeout: 30 * time.Second}
-
 	for {
-
-		res, err := myClient.Get(apiUrl)
-		if err == nil {
-			dec := json.NewDecoder(res.Body)
-			var price float64
-			for dec.More() {
-				var jval JSVal
-				err := dec.Decode(&jval)
-				if err != nil {
-					fmt.Println(err)
-					break
-				}
-				fmt.Printf("Bitcoin to usd price: %f at %s\n", jval.BPI.USD.Rf, jval.Time.Updated)
-				price = jval.BPI.USD.Rf
-			}
-			if price != 0 {
-				stat.AddStat(price)
-				median := stat.getMedian()
-				users.SendToAllUsers(b, price, median)
-
-				fmt.Printf("Median price: %.2f, diff: %.2f%%\n", median, (1-float64(price)/median)*100)
-			}
-
-			res.Body.Close()
-		} else {
-			log.Println(err)
+		price := updatePrice()
+		if price != 0 {
+			stat.AddStat(price)
+			median := stat.getMedian()
+			users.SendToAllUsers(b, price, median)
+			fmt.Printf("Median price: %.2f, diff: %.2f%%\n", median, (1-float64(price)/median)*100)
 		}
 		//wake up every 30 minutes
 		time.Sleep(time.Second * 60)
+
 	}
+}
+func sendMedianPrice(b *tb.Bot, userChannel chan *tb.User, stat *Stat) {
+	for user, ok := <-userChannel; ok; user, ok = <-userChannel {
+		price := updatePrice()
+		if price != 0 {
+			log.Printf("Send update to %s", user.Username)
+			median := stat.getMedian()
+			message := fmt.Sprintf("Bitcoin price is: %.2f $, "+
+				"Diff: %.1f%%"+
+				"\nSee more at https://www.coindesk.com/price/", price, (price/median-1)*100)
+			_, err := b.Send(user, message)
+			if err != nil {
+				switch err.Error() {
+				case "api error: Bad Request: no such user":
+				default:
+					fmt.Println(err)
+				}
+			}
+		}
+	}
+}
+
+func sendUserToChan(ch chan *tb.User, user *tb.User) {
+	ch <- user
 }
 
 func main() {
@@ -263,6 +289,8 @@ func main() {
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
 	stat := InitStat()
+	userChannel := make(chan *tb.User)
+	go sendMedianPrice(b, userChannel, stat)
 
 	if err != nil {
 		log.Fatal(err)
@@ -273,9 +301,7 @@ func main() {
 		b.Send(m.Sender, "Morning")
 	})
 	b.Handle("/update", func(m *tb.Message) {
-		//TODO move it to separate gorutune
-		median := stat.getMedian()
-		b.Send(m.Sender, fmt.Sprintf("Bitcoin median price for last 24h: %.2f $", median))
+		go sendUserToChan(userChannel, m.Sender)
 	})
 	b.Handle("/start", func(m *tb.Message) {
 		b.Send(m.Sender, fmt.Sprintf("Hi, @%s!\nI'm going to send you price update daily", m.Sender.Username))
