@@ -118,7 +118,7 @@ func InitUsers() (users *Users) {
 func (chats *Chats) AddChat(newchat tb.Chat) {
 	chats.mut.Lock()
 	defer chats.mut.Unlock()
-	fmt.Printf("Add user: %s\n", newchat.Title)
+	fmt.Printf("Add chat: %s\n", newchat.ID)
 	if _, ok := chats.chatsMap[newchat.ID]; !ok {
 		chats.chatsMap[newchat.ID] = newchat
 		db, err := bolt.Open(databaseName, 0600, nil)
