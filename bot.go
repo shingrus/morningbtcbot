@@ -24,7 +24,7 @@ const apiUrl = "https://api.coindesk.com/v1/bpi/currentprice.json"
 
 //var picesBucket = "Price_BTC_USD"
 
-var hourToSend = 9
+var hourToSend = 6
 
 type Users struct {
 	usersMap map[int]tb.User
