@@ -335,7 +335,7 @@ func getPriceEvery60Seconds(stat *Stat, b *tb.Bot, chats *Chats) {
 				medianBTC, (1-float64(priceBTC)/medianBTC)*100, medianETH, (1-float64(priceETH)/medianETH)*100)
 		}
 		//wake up every 30 minute
-		time.Sleep(time.Second * 60 * 30)
+		time.Sleep(time.Second * 60)
 
 	}
 }
