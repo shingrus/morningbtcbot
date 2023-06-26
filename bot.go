@@ -226,9 +226,9 @@ func (chats *Chats) SendToAllChats(b *tb.Bot, priceBTC float64, medianBTC float6
 		fmt.Printf("Time diff in hours: %f", time.Since(lastSendDate).Hours())
 		if force || time.Since(lastSendDate).Hours() > 23 {
 			message := fmt.Sprintf("BTC price is: %.2f $, "+
-				"Diff: %.2f%%"+
+				"Diff: %.2f%%\n"+
 				"ETH price is: %.2f$, "+
-				"Diff: %.2f%%\n",
+				"Diff: %.2f%%",
 				priceBTC, (priceBTC/medianBTC-1)*100,
 				medianETH, (priceETH/medianETH-1)*100)
 			for _, chat := range chats.getChats() {
